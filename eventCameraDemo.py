@@ -1,14 +1,10 @@
-import dearpygui.dearpygui as dpg
-from metavision_core.event_io import EventsIterator, is_live_camera
-from metavision_core.event_io.raw_reader import initiate_device
-from metavision_sdk_core import (
-    ColorPalette,
-    PeriodicFrameGenerationAlgorithm,
-    OnDemandFrameGenerationAlgorithm,
-)
-import numpy as np
-from pypylon import pylon
 import threading
+
+import dearpygui.dearpygui as dpg
+import numpy as np
+from metavision_core.event_io import EventsIterator
+from metavision_core.event_io.raw_reader import initiate_device
+from metavision_sdk_core import PeriodicFrameGenerationAlgorithm
 
 dpg.create_context()
 dpg.create_viewport()
@@ -54,10 +50,6 @@ periodic_frame_gen = PeriodicFrameGenerationAlgorithm(
 )
 periodic_frame_gen.set_output_callback(frame_gen_callback)
 
-on_demand_frame_gen = OnDemandFrameGenerationAlgorithm(
-    width, height, 10000, ColorPalette.Dark
-)
-
 with dpg.window(label="Example Window"):
     dpg.add_image("eventFrameBuffer")
 
@@ -65,7 +57,6 @@ dpg.show_metrics()
 dpg.show_viewport()
 
 quit = threading.Event()
-
 
 def processEventCam(mv_iterator, periodic_frame_gen, quitEvent):
     for evs in mv_iterator:
