@@ -47,15 +47,19 @@ class EventCamera(Camera):
             sensor_width=self.width, sensor_height=self.height, fps=30
         )
         self.frameGenerator.set_output_callback(frame_gen_callback)
+        
+        self.connected = True
 
     # Starts the event camera stream
-    def beginStreaming(self):
-        t = threading.Thread(target=self._processEvents)
-        t.start()
+    def startStreaming(self):
+        self._thread = threading.Thread(target=self._processEvents)
+        self._thread.start()
+        self.streaming = True
 
     # Stops the event camera stream
     def stopStreaming(self):
         self.stopStreamingEvent.set()
+        self.streaming = False
 
     # For internal use only
     # Processes event camera's events in a threa
@@ -66,4 +70,5 @@ class EventCamera(Camera):
             if self.stopStreamingEvent.is_set():
                 break
 
+            # This sends streamed events to the PeriodicFrameGenerator so we have some sort of output from the camera
             self.frameGenerator.process_events(event)

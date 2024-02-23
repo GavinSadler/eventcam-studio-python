@@ -27,8 +27,8 @@ class FrameCamera(Camera):
         self.device = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
         self.device.Open()
 
-        self.device.Width.SetValue(640)
-        self.device.Height.SetValue(480)
+        self.device.Width.SetValue(640 * 4)
+        self.device.Height.SetValue(480 * 4)
         self.device.BslCenterX.Execute()
         self.device.BslCenterY.Execute()
         self.device.PixelFormat.SetValue("RGB8")
@@ -51,11 +51,15 @@ class FrameCamera(Camera):
             self.lastFrame = frame
         
         self.registerCallback("_internal", onFrameGrab)
+        
+        self.connected = True
     
     # Starts the event camera stream
-    def beginStreaming(self):
+    def startStreaming(self):
         self.device.StartGrabbing(pylon.GrabStrategy_LatestImages, pylon.GrabLoop_ProvidedByInstantCamera)
+        self.streaming = True
 
     # Stops the event camera stream
     def stopStreaming(self):
         self.device.StopGrabbing()
+        self.streaming = False
