@@ -46,25 +46,17 @@ with dpg.texture_registry():
         format=dpg.mvFormat_Float_rgb,
         tag="frameCameraFrameBuffer",
     )
-    
-def setStreaming(camera: Camera, shouldStream: bool):
-    if not camera.streaming and shouldStream:
-        print("Hello")
-        camera.beginStreaming()
-    elif camera.streaming and not shouldStream:
-        print("Goodbye")
-        camera.stopStreaming()
 
 with dpg.window(no_close=True, no_collapse=True):
     with dpg.group(horizontal=True):
         dpg.add_image("eventCameraFrameBuffer")
         dpg.add_image("frameCameraFrameBuffer", width=640, height=480)
     
-    dpg.add_checkbox(label="Stream from event camera", callback=lambda v: setStreaming(eventCam, v))
-    dpg.add_checkbox(label="Stream from frame camera", callback=lambda v: setStreaming(frameCam, v))
-
 dpg.show_metrics() # Shows performance stats
 dpg.show_imgui_demo()
+
+eventCam.startStreaming()
+frameCam.startStreaming()
 
 dpg.show_viewport()
 dpg.start_dearpygui()
