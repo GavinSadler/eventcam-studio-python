@@ -1,19 +1,33 @@
+import cv2
 import numpy as np
 from pypylon import pylon
-
+import threading
 from Camera import Camera
+
 
 # Needed by pylon API in order to facilitate callback functionality
 class _ImageGrabHandler(pylon.ImageEventHandler):
+
+    _thread = None
+
     def __init__(self, callbacks):
         super().__init__()
         self.callbacks = callbacks
-    def OnImageGrabbed(self, camera: pylon.InstantCamera, grabResult: pylon.GrabResult):
-        frame = np.asfarray(grabResult.GetArray(), "f")
+
+    def _processFrame(self, frame: np.ndarray):
+        frame = cv2.cvtColor(frame, cv2.COLOR_BayerBG2RGB)
+        frame = np.asfarray(frame, "f")
         frame = np.true_divide(frame, 255.0)
 
         for callback in self.callbacks.values():
             callback(frame)
+
+    def OnImageGrabbed(self, camera: pylon.InstantCamera, grabResult: pylon.GrabResult):
+        self._thread = threading.Thread(
+            target=self._processFrame, args=(grabResult.GetArray(),)
+        )
+        self._thread.start()
+
 
 class FrameCamera(Camera):
 
@@ -24,14 +38,16 @@ class FrameCamera(Camera):
         super().__init__()
 
     def connect(self):
-        self.device = pylon.InstantCamera(pylon.TlFactory.GetInstance().CreateFirstDevice())
+        self.device = pylon.InstantCamera(
+            pylon.TlFactory.GetInstance().CreateFirstDevice()
+        )
         self.device.Open()
 
-        self.device.Width.SetValue(640 * 4)
-        self.device.Height.SetValue(480 * 4)
+        self.device.Width.SetValue(640 * 3)
+        self.device.Height.SetValue(480 * 3)
         self.device.BslCenterX.Execute()
         self.device.BslCenterY.Execute()
-        self.device.PixelFormat.SetValue("RGB8")
+        self.device.PixelFormat.SetValue("BayerRG8")
         self.device.AcquisitionFrameRate.SetValue(30)
         self.device.AcquisitionFrameRateEnable.SetValue(True)
         # camera.TriggerMode.setValue("On" or "Off")
@@ -39,24 +55,30 @@ class FrameCamera(Camera):
 
         self.width = self.device.Width.GetValue()
         self.height = self.device.Height.GetValue()
-        
+
         # Initialize self.lastFrame with a random frame
         rng = np.random.default_rng()
-        self.lastFrame = rng.standard_normal(self.width * self.height * 3, dtype=np.float32)
-        
+        self.lastFrame = rng.standard_normal(
+            self.width * self.height * 3, dtype=np.float32
+        )
+
         self.imageGrabHandler = _ImageGrabHandler(self.callbacks)
-        self.device.RegisterImageEventHandler(self.imageGrabHandler, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None)
-        
+        self.device.RegisterImageEventHandler(
+            self.imageGrabHandler, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None
+        )
+
         def onFrameGrab(frame):
             self.lastFrame = frame
-        
+
         self.registerCallback("_internal", onFrameGrab)
-        
+
         self.connected = True
-    
+
     # Starts the event camera stream
     def startStreaming(self):
-        self.device.StartGrabbing(pylon.GrabStrategy_LatestImages, pylon.GrabLoop_ProvidedByInstantCamera)
+        self.device.StartGrabbing(
+            pylon.GrabStrategy_LatestImageOnly, pylon.GrabLoop_ProvidedByInstantCamera
+        )
         self.streaming = True
 
     # Stops the event camera stream

@@ -22,3 +22,4 @@ delay = 10
 sleep(delay)
 
 print(f"{numFrames} in {delay} seconds, {numFrames / delay} fps")
+print(f"{frameCam.device.ResultingFrameRate.Value} Fps from the camera")
