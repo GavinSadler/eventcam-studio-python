@@ -48,15 +48,36 @@ with dpg.texture_registry():
     )
 
 with dpg.window(no_close=True, no_collapse=True):
+
     with dpg.group(horizontal=True):
         dpg.add_image("eventCameraFrameBuffer")
         dpg.add_image("frameCameraFrameBuffer", width=640, height=480)
+
+    with dpg.group(horizontal=True):
+        dpg.add_text("Event Camera Stream: ")
+        dpg.add_button(label="Start", callback=lambda: eventCam.startStreaming())
+        dpg.add_button(label="Stop", callback=lambda: eventCam.stopStreaming())
+        
+    with dpg.group(horizontal=True):
+        dpg.add_text("Frame Camera Stream: ")
+        dpg.add_button(label="Start", callback=lambda: frameCam.startStreaming())
+        dpg.add_button(label="Stop", callback=lambda: frameCam.stopStreaming())
     
+    with dpg.group(horizontal=True):
+        dpg.add_text("Event Camera Record: ")
+        dpg.add_button(label="Start", callback=lambda: eventCam.startRecording())
+        dpg.add_button(label="Stop", callback=lambda: eventCam.stopRecording())
+        
+    with dpg.group(horizontal=True):
+        dpg.add_text("Frame Camera Record: ")
+        dpg.add_button(label="Start", callback=lambda: frameCam.startRecording())
+        dpg.add_button(label="Stop", callback=lambda: frameCam.stopRecording())
+
 dpg.show_metrics() # Shows performance stats
 dpg.show_imgui_demo()
 
-eventCam.startStreaming()
-frameCam.startStreaming()
+# eventCam.startStreaming()
+# frameCam.startStreaming()
 
 dpg.show_viewport()
 dpg.start_dearpygui()

@@ -13,7 +13,7 @@ def onFrameFrame(frame: np.ndarray):
     global numFrames
     numFrames += 1
 
-frameCam.registerCallback("dearpygui", onFrameFrame)
+frameCam.registerCallback("testCallback", onFrameFrame)
 
 frameCam.startStreaming()
 

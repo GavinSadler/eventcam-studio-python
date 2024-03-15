@@ -1,7 +1,58 @@
 import array
 import dearpygui.dearpygui as dpg
+import dearpygui.demo as demo
+
 
 dpg.create_context()
+
+demo.show_demo()
+
+
+# === Theme for disabled elements ===
+with dpg.theme() as disabled_theme:
+    with dpg.theme_component(dpg.mvMenuItem, enabled_state=False):
+        dpg.add_theme_color(dpg.mvThemeCol_Text, [100, 100, 100])
+        dpg.add_theme_color(dpg.mvThemeCol_Button, [100, 100, 100])
+
+dpg.bind_theme(disabled_theme)
+
+
+# === Callbacks ===
+def onConnectCameras():
+    setAppMode("STREAMING")
+
+
+def onDisconnectCameras():
+    setAppMode("WAITING")
+
+
+def onOpenRecording():
+    setAppMode("SEEKING")
+
+
+def onCloseRecoding():
+    setAppMode("WAITING")
+
+
+def setAppMode(newMode):
+    """Enables and disables certain features of the app depending on what mode it's in"""
+
+    if newMode == "WAITING":
+        dpg.configure_item("openRecordingButton", enabled=True)
+        dpg.configure_item("closeRecordingButton", enabled=False)
+        dpg.configure_item("connectCamerasButton", enabled=True)
+        dpg.configure_item("disconnectCamerasButton", enabled=False)
+    elif newMode == "STREAMING":
+        dpg.configure_item("openRecordingButton", enabled=False)
+        dpg.configure_item("closeRecordingButton", enabled=False)
+        dpg.configure_item("connectCamerasButton", enabled=False)
+        dpg.configure_item("disconnectCamerasButton", enabled=True)
+    elif newMode == "SEEKING":
+        dpg.configure_item("openRecordingButton", enabled=False)
+        dpg.configure_item("closeRecordingButton", enabled=False)
+        dpg.configure_item("connectCamerasButton", enabled=False)
+        dpg.configure_item("disconnectCamerasButton", enabled=True)
+
 
 # === Export footage dialog ===
 with dpg.window(
@@ -28,6 +79,29 @@ with dpg.window(
             callback=lambda: dpg.configure_item("exportFootageDialog", show=False),
         )
 
+# === Configure Frame Camera Dialog ===
+with dpg.window(
+    label="Configure frame camera", modal=True, show=False, tag="configureFrameCameraDialog"
+):
+    dpg.add_text("Target FPS: (?)")
+    dpg.add_input_double(default_value=15.0)
+    dpg.add_text("Resolution Width:")
+    dpg.add_input_int(default_value=(640 * 3))
+    dpg.add_text("Resolution Height:")
+    dpg.add_input_int(default_value=(480 * 3))
+    dpg.add_separator()
+    with dpg.group(horizontal=True):
+        dpg.add_button(
+            label="Confirm",
+            width=75,
+            callback=lambda: dpg.configure_item("configureFrameCameraDialog", show=False),
+        )
+        dpg.add_button(
+            label="Cancel",
+            width=75,
+            callback=lambda: dpg.configure_item("configureFrameCameraDialog", show=False),
+        )
+
 # === Texture registry (used to setup camera framebuffers) ===
 with dpg.texture_registry(show=True):
     texture_1 = []
@@ -51,8 +125,27 @@ with dpg.texture_registry(show=True):
 with dpg.window(tag="viewportWindow", label="Viewports"):
     dpg.add_image("eventCameraFrameBuffer", tag="eventCameraViewport", pos=(0, 0))
     dpg.add_image("frameCameraFrameBuffer", tag="frameCameraViewport", pos=(640, 0))
-    dpg.add_text("No viewports visible (Change view mode in Display > Stream view)", tag="noViewportsMessage", show=False)
+    dpg.add_text(
+        "No viewports visible (Change view mode in Display > Stream view)",
+        tag="noViewportsMessage",
+        show=False,
+    )
 
+# === Seeking scrubber window ===
+with dpg.window(tag="scrubberWindow"):
+    dpg.add_slider_double(width=-1)
+    
+    with dpg.table(width=-1, header_row=False):
+        dpg.add_table_column(width_stretch=True)
+        dpg.add_table_column(width_stretch=False)
+        dpg.add_table_column(width_stretch=True)
+        with dpg.table_row():
+            dpg.add_table_cell()
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="Seek back")
+                dpg.add_button(label="Pause/play")
+                dpg.add_button(label="Seek forwared")
+            dpg.add_table_cell()
 
 def setViewportMode(_, mode):
     if mode == "None":
@@ -77,7 +170,7 @@ def setViewportMode(_, mode):
         dpg.show_item("eventCameraViewport")
         dpg.show_item("frameCameraViewport")
         dpg.set_item_pos("frameCameraViewport", (640, 0))
-        dpg.configure_item("viewportWindow", width=(640*2), height=480)
+        dpg.configure_item("viewportWindow", width=(640 * 2), height=480)
         dpg.hide_item("noViewportsMessage")
     elif mode == "Overlay":
         dpg.show_item("eventCameraViewport")
@@ -90,8 +183,22 @@ def setViewportMode(_, mode):
 # === Menu bar ===
 with dpg.viewport_menu_bar():
     with dpg.menu(label="File"):
-        dpg.add_menu_item(label="Open recording")
-        dpg.add_menu_item(label="Connect to cameras")
+        dpg.add_menu_item(label="Open recording", tag="openRecordingButton")
+        dpg.add_menu_item(
+            label="Close recording", tag="closeRecordingButton", enabled=False
+        )
+        dpg.add_separator()
+        dpg.add_menu_item(
+            label="Connect to cameras",
+            tag="connectCamerasButton",
+            callback=onConnectCameras,
+        )
+        dpg.add_menu_item(
+            label="Disconnect from cameras",
+            tag="disconnectCamerasButton",
+            enabled=False,
+            callback=onDisconnectCameras,
+        )
         dpg.add_separator()
         dpg.add_menu_item(
             label="Export footage",
@@ -134,8 +241,8 @@ with dpg.viewport_menu_bar():
                     )
 
     with dpg.menu(label="Settings"):
-        dpg.add_menu_item(label="Event camera configuration")
-        dpg.add_menu_item(label="Frame camera configuration")
+        dpg.add_menu_item(label="Event camera configuration", enabled=False)
+        dpg.add_menu_item(label="Frame camera configuration", callback=lambda: dpg.configure_item("configureFrameCameraDialog", show=True))
 
     dpg.add_menu_item(label="Help")
 

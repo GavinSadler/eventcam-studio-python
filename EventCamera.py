@@ -1,6 +1,8 @@
+import time
 from metavision_core.event_io import EventsIterator
 from metavision_core.event_io.raw_reader import initiate_device
 from metavision_sdk_core import PeriodicFrameGenerationAlgorithm
+import metavision_hal
 import numpy as np
 
 import threading
@@ -48,7 +50,36 @@ class EventCamera(Camera):
         )
         self.frameGenerator.set_output_callback(frame_gen_callback)
         
+        self.stopExternalClock()
+        
         self.connected = True
+        
+    def startExternalClock(self, dutyCycle=0.5, period=(1/30)):
+        i_trigger_in = self.device.get_i_trigger_in()
+        i_trigger_in.enable(metavision_hal.I_TriggerIn.Channel.LOOPBACK)
+        # i_trigger_in.enable(metavision_hal.I_TriggerIn.Channel.MAIN)
+        
+        i_trigger_out = self.device.get_i_trigger_out()
+        i_trigger_out.set_duty_cycle(dutyCycle) # 50% duty cycle
+        i_trigger_out.set_period(int(1 * 10**6 * period)) # Period in us, so multiply duration in seconds by 10^6
+        i_trigger_out.enable()
+    
+    def stopExternalClock(self):
+        i_trigger_in = self.device.get_i_trigger_in()
+        i_trigger_in.disable(metavision_hal.I_TriggerIn.Channel.LOOPBACK)
+        # i_trigger_in.disable(metavision_hal.I_TriggerIn.Channel.MAIN)
+        
+        i_trigger_out = self.device.get_i_trigger_out()
+        i_trigger_out.disable()
+
+    def startRecording(self, recordingFileName = "output.raw"):
+        if self.streaming and not self.recording:
+            self.device.get_i_events_stream().log_raw_data(recordingFileName)
+            self.recording = True
+    
+    def stopRecording(self):
+        self.device.get_i_events_stream().stop_log_raw_data()
+        self.recording = False
 
     # Starts the event camera stream
     def startStreaming(self):
