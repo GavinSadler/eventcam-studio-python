@@ -4,6 +4,8 @@ import os
 from EventCamera import EventCamera
 from FrameCamera import FrameCamera
 
+# This program lets the event camera drive the sync signal
+
 ec = EventCamera()
 fc = FrameCamera()
 

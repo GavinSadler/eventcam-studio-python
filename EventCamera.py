@@ -50,6 +50,11 @@ class EventCamera(Camera):
         )
         self.frameGenerator.set_output_callback(frame_gen_callback)
         
+        # Enable electronic trigger in signals
+        i_trigger_in = self.device.get_i_trigger_in()
+        i_trigger_in.enable(metavision_hal.I_TriggerIn.Channel.MAIN)
+        
+        # Just to make sure the external clock isn't running from a previous instance
         self.stopExternalClock()
         
         self.connected = True
@@ -73,7 +78,7 @@ class EventCamera(Camera):
         i_trigger_out.disable()
 
     def startRecording(self, recordingFileName = "output.raw"):
-        if self.streaming and not self.recording:
+        if self.streaming and (not self.recording):
             self.device.get_i_events_stream().log_raw_data(recordingFileName)
             self.recording = True
     

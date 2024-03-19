@@ -29,19 +29,21 @@ class _ImageGrabHandler(pylon.ImageEventHandler):
         self.baseFilename = baseFilename
         self.frameNumber = 0
         self.record = True
-        
+
     def stopRecording(self):
         self.record = False
 
     def OnImageGrabbed(self, camera: pylon.InstantCamera, grabResult: pylon.GrabResult):
         if self.record:
             self.imgageHandler.AttachGrabResultBuffer(grabResult)
-            self.imgageHandler.Save(pylon.ImageFileFormat_Raw, f"{self.baseFilename}_{self.frameNumber}.png")
+            self.imgageHandler.Save(
+                pylon.ImageFileFormat_Bmp, f"{self.baseFilename}_{self.frameNumber}.bmp"
+            )
             # print(grabResult.GetImageFormat())
             # print(self.imgageHandler.CanSaveWithoutConversion(grabResult.GetImageFormat()))
             self.imgageHandler.Release()
             self.frameNumber += 1
-        
+
         self._thread = threading.Thread(
             target=self._processFrame, args=(grabResult.GetArray(),)
         )
@@ -63,7 +65,7 @@ class FrameCamera(Camera):
         self.device.Open()
 
         self.device.Width.SetValue(640 * 3)  # 1920
-        self.device.Height.SetValue(480 * 3) # 1440
+        self.device.Height.SetValue(480 * 3)  # 1440
         self.device.BslCenterX.Execute()
         self.device.BslCenterY.Execute()
         self.device.PixelFormat.SetValue("BayerRG8")
@@ -94,10 +96,12 @@ class FrameCamera(Camera):
         self.connected = True
 
     # Starts the event camera stream
-    def startStreaming(self, triggeredInput = False):
-                
-        self.device.TriggerMode.SetValue("On" if triggeredInput else "Off")
-        
+    def startStreaming(self, triggeredInput=False, targetFramerate=30.0):
+
+        # self.device.TriggerMode.SetValue("On" if triggeredInput else "Off")
+        # self.device.AcquisitionFrameRate.SetValue(targetFramerate)
+        # self.device.AcquisitionFrameRateEnable.SetValue(True)
+
         self.device.StartGrabbing(
             pylon.GrabStrategy_LatestImageOnly, pylon.GrabLoop_ProvidedByInstantCamera
         )
@@ -107,16 +111,22 @@ class FrameCamera(Camera):
     def stopStreaming(self):
         self.device.StopGrabbing()
         self.streaming = False
-    
-    def startRecording(self, recordingFileName = "output"):
+
+    def startRecording(self, recordingFileName="output"):
         if not self.streaming or self.recording:
             return
         
+        # Send out a signal when exposure is active
+        # self.device.LineSource.SetValue("ExposureActive")
+        # self.device.LineMode.SetValue("Output")
+
         self.imageGrabHandler.startRecording(recordingFileName)
-        
+
         self.recording = True
-        
-    def stopRecording(self):        
+
+    def stopRecording(self):
         self.imageGrabHandler.record = False
         self.recording = False
         
+        # Don't send any more signals to event camera
+        self.device.LineSource.SetValue("Off")
