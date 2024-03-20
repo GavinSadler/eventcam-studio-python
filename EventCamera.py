@@ -50,11 +50,7 @@ class EventCamera(Camera):
         )
         self.frameGenerator.set_output_callback(frame_gen_callback)
         
-        # Enable electronic trigger in signals
-        i_trigger_in = self.device.get_i_trigger_in()
-        i_trigger_in.enable(metavision_hal.I_TriggerIn.Channel.MAIN)
-        
-        # Just to make sure the external clock isn't running from a previous instance
+        # Just to make sure the external clock isn't running from a previous instance of the camera being connected
         self.stopExternalClock()
         
         self.connected = True
@@ -62,7 +58,6 @@ class EventCamera(Camera):
     def startExternalClock(self, dutyCycle=0.5, period=(1/30)):
         i_trigger_in = self.device.get_i_trigger_in()
         i_trigger_in.enable(metavision_hal.I_TriggerIn.Channel.LOOPBACK)
-        # i_trigger_in.enable(metavision_hal.I_TriggerIn.Channel.MAIN)
         
         i_trigger_out = self.device.get_i_trigger_out()
         i_trigger_out.set_duty_cycle(dutyCycle) # 50% duty cycle
@@ -72,15 +67,26 @@ class EventCamera(Camera):
     def stopExternalClock(self):
         i_trigger_in = self.device.get_i_trigger_in()
         i_trigger_in.disable(metavision_hal.I_TriggerIn.Channel.LOOPBACK)
-        # i_trigger_in.disable(metavision_hal.I_TriggerIn.Channel.MAIN)
         
         i_trigger_out = self.device.get_i_trigger_out()
         i_trigger_out.disable()
+        
+    def enableTriggerInput(self):
+        # Enable electronic trigger in signals
+        i_trigger_in = self.device.get_i_trigger_in()
+        i_trigger_in.enable(metavision_hal.I_TriggerIn.Channel.MAIN)
+        
+    def disableTriggerInput(self):
+        # Disable electronic trigger in signals
+        i_trigger_in = self.device.get_i_trigger_in()
+        i_trigger_in.disable(metavision_hal.I_TriggerIn.Channel.MAIN)
 
     def startRecording(self, recordingFileName = "output.raw"):
-        if self.streaming and (not self.recording):
-            self.device.get_i_events_stream().log_raw_data(recordingFileName)
-            self.recording = True
+        if not self.streaming or self.recording:
+            return
+        
+        self.device.get_i_events_stream().log_raw_data(recordingFileName)
+        self.recording = True
     
     def stopRecording(self):
         self.device.get_i_events_stream().stop_log_raw_data()

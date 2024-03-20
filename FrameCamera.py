@@ -69,10 +69,9 @@ class FrameCamera(Camera):
         self.device.BslCenterX.Execute()
         self.device.BslCenterY.Execute()
         self.device.PixelFormat.SetValue("BayerRG8")
-        self.device.TriggerSource.SetValue("Line1")
-        # self.device.TriggerSource.SetValue("Line 1")
-        # self.device.AcquisitionFrameRate.SetValue(30)
-        # self.device.AcquisitionFrameRateEnable.SetValue(True)
+
+        # If the device is configured to send signals out on frame capture, make sure the output line is configured correctly
+        self.device.LineSource.SetValue("ExposureActive")
 
         self.width = self.device.Width.GetValue()
         self.height = self.device.Height.GetValue()
@@ -96,11 +95,16 @@ class FrameCamera(Camera):
         self.connected = True
 
     # Starts the event camera stream
-    def startStreaming(self, triggeredInput=False, targetFramerate=30.0):
-
-        # self.device.TriggerMode.SetValue("On" if triggeredInput else "Off")
-        # self.device.AcquisitionFrameRate.SetValue(targetFramerate)
-        # self.device.AcquisitionFrameRateEnable.SetValue(True)
+    def startStreaming(self):
+        
+        # Uncap camera framerate
+        self.device.TriggerMode.SetValue("Off")
+        self.device.AcquisitionFrameRateEnable.SetValue(False)
+        
+        # Make sure camera is not triggering from external source
+        self.device.TriggerSource.SetValue("Software")
+        self.device.LineSource.SetValue("Off")
+        self.device.TriggerMode.SetValue("Off")
 
         self.device.StartGrabbing(
             pylon.GrabStrategy_LatestImageOnly, pylon.GrabLoop_ProvidedByInstantCamera
@@ -112,13 +116,37 @@ class FrameCamera(Camera):
         self.device.StopGrabbing()
         self.streaming = False
 
-    def startRecording(self, recordingFileName="output"):
+    def startRecording(
+        self, recordingFileName="output", triggeredInput=False, framerateTarget=-1.0
+    ):
+        """Starts recording from the frame camera
+
+        Args:
+            recordingFileName (str, optional): The name of the file to be saved to disk. Defaults to "output".
+            
+            triggeredInput (bool, optional): Whether or not the camera should capture frames from some external trigger signal. Defaults to False.
+            
+            framerateTarget (float, optional): The target framerate of the camera if it is not being triggered by an external signal, so only effective if
+            triggeredInput == False. If negative, the camera will maximize its framerate. Defaults to -1.0.
+        """
         if not self.streaming or self.recording:
             return
-        
-        # Send out a signal when exposure is active
-        # self.device.LineSource.SetValue("ExposureActive")
-        # self.device.LineMode.SetValue("Output")
+
+        if triggeredInput:
+            self.device.LineMode.SetValue("Input")
+            self.device.TriggerSource.SetValue("Line1")
+            self.device.TriggerMode.SetValue("On")
+        else:
+            if framerateTarget < 0:
+                self.device.AcquisitionFrameRateEnable.SetValue(False)
+            else:
+                self.device.AcquisitionFrameRateEnable.SetValue(True)
+                self.device.AcquisitionFrameRate.SetValue(framerateTarget)
+
+            self.device.TriggerSource.SetValue("Software")
+            self.device.LineMode.SetValue("Output")
+            self.device.LineSource.SetValue("Line1")
+            self.device.TriggerMode.SetValue("Off")
 
         self.imageGrabHandler.startRecording(recordingFileName)
 
@@ -128,5 +156,11 @@ class FrameCamera(Camera):
         self.imageGrabHandler.record = False
         self.recording = False
         
-        # Don't send any more signals to event camera
+        # Uncap camera framerate
+        self.device.TriggerMode.SetValue("Off")
+        self.device.AcquisitionFrameRateEnable.SetValue(False)
+        
+        # Make sure camera is not triggering from external source
+        self.device.TriggerSource.SetValue("Software")
         self.device.LineSource.SetValue("Off")
+        self.device.TriggerMode.SetValue("Off")
