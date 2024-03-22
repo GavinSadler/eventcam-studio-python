@@ -5,43 +5,48 @@ import threading
 from Camera import Camera
 import time
 
+from FrameBuffer import FrameBuffer
+
 
 # Needed by pylon API in order to facilitate callback functionality
 class _ImageGrabHandler(pylon.ImageEventHandler):
 
-    _thread = None
-    imgageHandler = pylon.PylonImage()
-    record = False
+    _thread: threading.Thread = None
+    _record: bool
+    _frameBuffer: FrameBuffer
 
-    def __init__(self, callbacks):
+    _imgageHandler = pylon.PylonImage()
+
+    def __init__(self, fb: FrameBuffer):
         super().__init__()
-        self.callbacks = callbacks
+        self._record = False
+        self._thread = None
+        self._frameBuffer = fb
 
     def _processFrame(self, frame: np.ndarray):
         frame = cv2.cvtColor(frame, cv2.COLOR_BayerBG2RGB)
         frame = np.asfarray(frame, "f")
         frame = np.true_divide(frame, 255.0)
 
-        for callback in self.callbacks.values():
-            callback(frame)
+        self._frameBuffer.set(frame)
 
     def startRecording(self, baseFilename: str):
         self.baseFilename = baseFilename
         self.frameNumber = 0
-        self.record = True
+        self._record = True
 
     def stopRecording(self):
-        self.record = False
+        self._record = False
 
     def OnImageGrabbed(self, camera: pylon.InstantCamera, grabResult: pylon.GrabResult):
-        if self.record:
-            self.imgageHandler.AttachGrabResultBuffer(grabResult)
-            self.imgageHandler.Save(
+        if self._record:
+            self._imgageHandler.AttachGrabResultBuffer(grabResult)
+            self._imgageHandler.Save(
                 pylon.ImageFileFormat_Bmp, f"{self.baseFilename}_{self.frameNumber}.bmp"
             )
             # print(grabResult.GetImageFormat())
             # print(self.imgageHandler.CanSaveWithoutConversion(grabResult.GetImageFormat()))
-            self.imgageHandler.Release()
+            self._imgageHandler.Release()
             self.frameNumber += 1
 
         self._thread = threading.Thread(
@@ -82,15 +87,13 @@ class FrameCamera(Camera):
             self.width * self.height * 3, dtype=np.float32
         )
 
-        self.imageGrabHandler = _ImageGrabHandler(self.callbacks)
+        self.imageGrabHandler = _ImageGrabHandler(self.frameBuffer)
         self.device.RegisterImageEventHandler(
             self.imageGrabHandler, pylon.RegistrationMode_ReplaceAll, pylon.Cleanup_None
         )
 
         def onFrameGrab(frame):
             self.lastFrame = frame
-
-        self.registerCallback("_internal", onFrameGrab)
 
         self.connected = True
 
@@ -153,7 +156,7 @@ class FrameCamera(Camera):
         self.recording = True
 
     def stopRecording(self):
-        self.imageGrabHandler.record = False
+        self.imageGrabHandler._record = False
         self.recording = False
         
         # Uncap camera framerate

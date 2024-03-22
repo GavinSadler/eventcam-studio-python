@@ -1,26 +1,21 @@
 import dearpygui.dearpygui as dpg
 import dearpygui.demo as demo
-import numpy as np
 
-from FrameBuffer import Framebuffer
+from FrameBuffer import FrameBuffer
 
 dpg.create_context()
 
-eventFrameBuffer = Framebuffer(640, 480)
-eventFrameBuffer.setColor(0, 1, 0)
-frameFrameBuffer = Framebuffer(640, 480)
+eventFrameBuffer = FrameBuffer(640, 480)
+frameFrameBuffer = FrameBuffer(640, 480)
+mixedFrameBuffer = FrameBuffer(640, 480)
+
 frameFrameBuffer.setColor(1, 0, 0)
-mixedFrameBuffer = Framebuffer(640, 480)
+eventFrameBuffer.setColor(0, 1, 0)
 
-def updateFrameCameraFrameBuffer(newFrame: np.ndarray):
-    frameFrameBuffer.set(newFrame)
-    dpg.set_value("frameCameraFrameBuffer", frameFrameBuffer.get())
-
-
-def updateEventCameraFrameBuffer(newFrame: np.ndarray):
-    eventFrameBuffer.set(newFrame)
-    dpg.set_value("eventCameraFrameBuffer", eventFrameBuffer.get())
-
+# Update the viewport buffers when our frame buffers change
+eventFrameBuffer.registerCallback(lambda newFrame: dpg.set_value("eventCameraFrameBuffer", newFrame))
+frameFrameBuffer.registerCallback(lambda newFrame: dpg.set_value("frameCameraFrameBuffer", newFrame))
+mixedFrameBuffer.registerCallback(lambda newFrame: dpg.set_value("mixedFrameBuffer", newFrame))
 
 def updateMixedFrameBuffer(blendPercentage: int):
     """
@@ -38,8 +33,6 @@ def updateMixedFrameBuffer(blendPercentage: int):
         eventFrameBuffer.get() * (blendPercentage / 100)
         + frameFrameBuffer.get() * (100 - blendPercentage) / 100
     )
-
-    dpg.set_value("mixedFrameBuffer", mixedFrameBuffer.get())
 
 # === Theme for disabled elements ===
 with dpg.theme() as disabled_theme:

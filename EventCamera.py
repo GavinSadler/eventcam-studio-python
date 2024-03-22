@@ -42,8 +42,7 @@ class EventCamera(Camera):
 
             self.lastFrame = cd_frame
 
-            for callback in self.callbacks.values():
-                callback(cd_frame)
+            self.frameBuffer.set(cd_frame)
 
         self.frameGenerator = PeriodicFrameGenerationAlgorithm(
             sensor_width=self.width, sensor_height=self.height, fps=30
