@@ -1,4 +1,4 @@
-import array
+import numpy as np
 import dearpygui.dearpygui as dpg
 import dearpygui.demo as demo
 
@@ -15,44 +15,6 @@ with dpg.theme() as disabled_theme:
         dpg.add_theme_color(dpg.mvThemeCol_Button, [100, 100, 100])
 
 dpg.bind_theme(disabled_theme)
-
-
-# === Callbacks ===
-def onConnectCameras():
-    setAppMode("STREAMING")
-
-
-def onDisconnectCameras():
-    setAppMode("WAITING")
-
-
-def onOpenRecording():
-    setAppMode("SEEKING")
-
-
-def onCloseRecoding():
-    setAppMode("WAITING")
-
-
-def setAppMode(newMode):
-    """Enables and disables certain features of the app depending on what mode it's in"""
-
-    if newMode == "WAITING":
-        dpg.configure_item("openRecordingButton", enabled=True)
-        dpg.configure_item("closeRecordingButton", enabled=False)
-        dpg.configure_item("connectCamerasButton", enabled=True)
-        dpg.configure_item("disconnectCamerasButton", enabled=False)
-    elif newMode == "STREAMING":
-        dpg.configure_item("openRecordingButton", enabled=False)
-        dpg.configure_item("closeRecordingButton", enabled=False)
-        dpg.configure_item("connectCamerasButton", enabled=False)
-        dpg.configure_item("disconnectCamerasButton", enabled=True)
-    elif newMode == "SEEKING":
-        dpg.configure_item("openRecordingButton", enabled=False)
-        dpg.configure_item("closeRecordingButton", enabled=False)
-        dpg.configure_item("connectCamerasButton", enabled=False)
-        dpg.configure_item("disconnectCamerasButton", enabled=True)
-
 
 # === Export footage dialog ===
 with dpg.window(
@@ -102,27 +64,37 @@ with dpg.window(
             callback=lambda: dpg.configure_item("configureFrameCameraDialog", show=False),
         )
 
+ecTexture = []
+for i in range(0, 640 * 480):
+    ecTexture.append(1)  # red
+    ecTexture.append(0)  # green
+    ecTexture.append(0)  # blue
+    ecTexture.append(1)  # alpha
+ecTexture = np.array(ecTexture)
+
+fcTexture = []
+for i in range(0, 640 * 480):
+    fcTexture.append(0)  # red
+    fcTexture.append(1)  # green
+    fcTexture.append(0)  # blue
+    fcTexture.append(1)  # alpha
+fcTexture = np.array(fcTexture)
+
+blendedTexture = ecTexture * (50 / 100) + fcTexture * (100 - 50) / 100
+
+def updateOverlayTexture(_, blendPercentage):
+    blendedTexture = ecTexture * (blendPercentage / 100) + fcTexture * (100 - blendPercentage) / 100
+    dpg.set_value("blendedBuffer", blendedTexture)
+
 # === Texture registry (used to setup camera framebuffers) ===
 with dpg.texture_registry(show=True):
-    texture_1 = []
-    for i in range(0, 640 * 480):
-        texture_1.append(1)  # red
-        texture_1.append(0)  # green
-        texture_1.append(0)  # blue
-        texture_1.append(1)  # alpha
-    texture_1 = array.array("f", texture_1)
-    dpg.add_dynamic_texture(640, 480, texture_1, tag="eventCameraFrameBuffer")
-    texture_2 = []
-    for i in range(0, 640 * 480):
-        texture_2.append(0)  # red
-        texture_2.append(1)  # green
-        texture_2.append(0)  # blue
-        texture_2.append(1)  # alpha
-    texture_2 = array.array("f", texture_2)
-    dpg.add_raw_texture(640, 480, texture_2, tag="frameCameraFrameBuffer")
+    
+    dpg.add_dynamic_texture(640, 480, ecTexture, tag="eventCameraFrameBuffer")
+    dpg.add_dynamic_texture(640, 480, fcTexture, tag="frameCameraFrameBuffer")
+    dpg.add_dynamic_texture(640, 480, blendedTexture, tag="blendedBuffer")
 
 # === Camera viewports window ===
-with dpg.window(tag="viewportWindow", label="Viewports"):
+with dpg.window(tag="viewportWindow", label="Viewports", no_close=True, no_collapse=True):
     dpg.add_image("eventCameraFrameBuffer", tag="eventCameraViewport", pos=(0, 0))
     dpg.add_image("frameCameraFrameBuffer", tag="frameCameraViewport", pos=(640, 0))
     dpg.add_text(
@@ -191,13 +163,11 @@ with dpg.viewport_menu_bar():
         dpg.add_menu_item(
             label="Connect to cameras",
             tag="connectCamerasButton",
-            callback=onConnectCameras,
         )
         dpg.add_menu_item(
             label="Disconnect from cameras",
             tag="disconnectCamerasButton",
             enabled=False,
-            callback=onDisconnectCameras,
         )
         dpg.add_separator()
         dpg.add_menu_item(
@@ -220,7 +190,7 @@ with dpg.viewport_menu_bar():
                 callback=setViewportMode,
                 default_value="Side-by-side",
             )
-            dpg.add_slider_float()
+            dpg.add_slider_float(callback=updateOverlayTexture)
 
         with dpg.menu(label="Event stream"):
             with dpg.menu(label="Color scheme"):
