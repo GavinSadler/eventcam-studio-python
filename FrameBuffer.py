@@ -40,6 +40,12 @@ class FrameBuffer:
     def get(self):
         return self._buffer
 
+    def getWidth(self):
+        return self._width
+    
+    def getHeight(self):
+        return self._height
+
     def registerCallback(self, callback: Callable[[np.ndarray], None]):
         self._subscribers.append(callback)
         
